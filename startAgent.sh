@@ -1,2 +1,2 @@
-uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn agent:app --reload --host 127.0.0.1 --port 8000
 
