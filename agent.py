@@ -1,28 +1,29 @@
 from fastapi import FastAPI, Response, Request
 from pydantic import BaseModel
+import threading
 import json
 import asyncio
+import time
 
 app = FastAPI()
 
 tasks = []
+stopper = True
 
-async def async_worker():
-    while True:
+def tasker():
+    while stopper:
         print("async worker tick")
-        await asyncio.sleep(5)
+        time.sleep(5)
 
 @app.on_event("startup")
 async def start_async_worker():
-    app.state.worker_task = asyncio.create_task(async_worker())
+    backgroundTask = threading.Thread(target=tasker, daemon=True)
+    print("qwe")
+    backgroundTask.start()
 
 @app.on_event("shutdown")
 async def stop_async_worker():
-    app.state.worker_task.cancel()
-    try:
-        await app.state.worker_task
-    except asyncio.CancelledError:
-        pass
+    stopper = False
 
 @app.get("/")
 async def live():
