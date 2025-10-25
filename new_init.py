@@ -44,6 +44,7 @@ with open(".env", "w") as f:
     f.write(f"agentUUID={agentUUID}\n")
     # write country even if blank so .env keys exist predictably
     f.write(f"country={country or ''}\n")
+    f.write(f"masterIPandPort={input("Введите ip:порт основного сервера: ")}\n")
 
 
 # Print results

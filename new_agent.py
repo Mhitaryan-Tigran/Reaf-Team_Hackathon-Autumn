@@ -2,24 +2,95 @@ from pydantic import BaseModel
 import requests
 import socket
 import time
+import threading
+import uuid
+import os
+import json
 from pythonping import ping as pping
 from typing import List, Union
 from fastapi import FastAPI
 from scapy.all import IP, ICMP, sr1
 from scapy.layers.inet import UDP
+from dotenv import load_dotenv
+load_dotenv()
+
 
 app = FastAPI()
 
-# Типы результатов
-TimeResult = List[Union[bool, float]]
-TraceResult = List[Union[bool, List[str]]]
+agentUUID = os.getenv("agentUUID")
+agentcountry = os.getenv("country")
+masterIPandPort = os.getenv("masterIPandPort")
+
+newTasks = []
+completedTasks = []
+
+backTHRWork = True
 
 MAX_HOPS = 30
 TRACE_PORT = 80
 HOP_TIMEOUT = 1.0
 
+def backgroundSender():
+    global backTHRWork
+    global completedTasks
+    while backTHRWork:
+        if completedTasks != []:
+            print(completedTasks[0])
+            body = {
+                "country": str(agentcountry),
+                "UIID": str(agentUUID),
+                "taskUIID": str(completedTasks[0]['taskUUID']),
+                "result": str(completedTasks[0]['result'])
+            }
+            req = requests.post(url=f"{masterIPandPort}/takeReport", data=json.dumps(body))
+
+            completedTasks.pop(0)
+        else:
+            time.sleep(1)
+
+def backgroundTasker():
+    global newTasks
+    global completedTasks
+    global backTHRWork
+    while backTHRWork:
+        if newTasks != []:
+            print(newTasks)
+            match newTasks[0]["task"]:
+                case "http(s)":
+                    taskTocomplete = newTasks[0]
+                    taskTocomplete["result"] = check_http_https(newTasks[0]["target"])
+                    completedTasks.append(taskTocomplete)
+                case "ping":
+                    taskTocomplete = newTasks[0]
+                    taskTocomplete["result"] = check_ping(newTasks[0]["target"])
+                    completedTasks.append(taskTocomplete)
+                case "tcp":
+                    taskTocomplete = newTasks[0]
+                    taskTocomplete["result"] = check_tcp_port(newTasks[0]["target"])
+                    completedTasks.append(taskTocomplete)
+                case "traceroute":
+                    taskTocomplete = newTasks[0]
+                    taskTocomplete["result"] = check_traceroute(newTasks[0]["target"])
+                    completedTasks.append(taskTocomplete)
+                case _:
+                    return {"error": "Unknown task"}
+            newTasks.pop(0)
+        else:
+            time.sleep(1)
+
+@app.on_event("startup")
+async def startDBConnection():
+    threading.Thread(target=backgroundTasker).start()
+    threading.Thread(target=backgroundSender).start()
+    pass
+
+@app.on_event("shutdown")
+async def stopDBConnection():
+    global backTHRWork
+    backTHRWork = False
+
 # 1. Проверка HTTP/HTTPS
-def check_http_https(host: str) -> TimeResult:
+def check_http_https(host: str):
     protocols = ['https://', 'http://']
     timeout = 5
     
@@ -29,25 +100,25 @@ def check_http_https(host: str) -> TimeResult:
             start_time = time.time()
             requests.head(url, timeout=timeout, allow_redirects=True)
             elapsed_time = (time.time() - start_time) * 1000
-            return [True, round(elapsed_time)]
+            return round(elapsed_time)
         except requests.exceptions.RequestException:
             continue
             
-    return [False, 0.0]
+    return False
 
 # 2. Проверка Ping (ICMP)
-def check_ping(host: str) -> TimeResult:
+def check_ping(host: str):
     try:
         response_list = pping(host, count=3, timeout=2, verbose=False)
         if response_list.success():
-            return [True, round(response_list.rtt_avg_ms)]
+            return round(response_list.rtt_avg_ms)
         else:
-            return [False, 0.0]
+            return False
     except Exception:
-        return [False, 0.0]
+        return False
 
 # 3. Проверка TCP-порта
-def check_tcp_port(host: str) -> TimeResult:
+def check_tcp_port(host: str):
     addr = host.split(":")
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -57,11 +128,11 @@ def check_tcp_port(host: str) -> TimeResult:
         elapsed_time = (time.time() - start_time) * 1000
         sock.close()
         if result == 0:
-            return [True, round(elapsed_time)]
+            return round(elapsed_time)
         else:
-            return [False, 0.0]
+            return False
     except Exception:
-        return [False, 0.0]
+        return False
 
 # 4. Низкоуровневая трассировка (manual_traceroute)
 def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
@@ -82,15 +153,15 @@ def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
     return reply_list
 
 # 5. Обертка для API: check_traceroute
-def check_traceroute(host: str) -> TraceResult:
+def check_traceroute(host: str):
     try:
         hops = manual_traceroute(host, MAX_HOPS)
         if hops:
-            return [True, hops]
+            return hops
         else:
-            return [False, []]
+            return False
     except Exception:
-        return [False, []]
+        return False
 
 # === Модели запросов ===
 
@@ -103,22 +174,18 @@ class reportFromAgent(BaseModel):
 class checkRequest(BaseModel):
     target: str
     task: str
+    taskUUID: str
 
 # === Основное API ===
 
 @app.post("/check")
 def check(validReq: checkRequest):
-    match validReq.task:
-        case "http(s)":
-            return check_http_https(validReq.target)
-        case "ping":
-            return check_ping(validReq.target)
-        case "tcp":
-            return check_tcp_port(validReq.target)
-        case "traceroute":
-            return check_traceroute(validReq.target)
-        case _:
-            return {"error": "Unknown task"}
+    newTask = {
+        "target": validReq.target,
+        "task": validReq.task,
+        "taskUUID": validReq.taskUUID
+    }
+    newTasks.append(newTask)
 
 # === Локальное тестирование ===
 
