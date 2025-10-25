@@ -5,8 +5,13 @@ import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { CheckTypeSelector } from './CheckTypeSelector';
 import { createCheck } from '../../api/checks';
+import { Search } from 'lucide-react';
 
-export const CheckForm: FC = () => {
+interface CheckFormProps {
+  onCheckCreated?: () => void;
+}
+
+export const CheckForm: FC<CheckFormProps> = ({ onCheckCreated }) => {
   const navigate = useNavigate();
   const [target, setTarget] = useState('');
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['http', 'ping']);
@@ -35,13 +40,20 @@ export const CheckForm: FC = () => {
         target: target.trim(),
         checks: selectedTypes,
       });
+      
+      // Callback для обновления списка проверок
+      if (onCheckCreated) {
+        onCheckCreated();
+      }
+      
+      // Переход на страницу результатов
       navigate(`/results/${check.id}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create check:', err);
-      setError('Не удалось создать проверку. Попробуйте снова.');
+      setError(err.response?.data?.detail || 'Не удалось создать проверку. Проверьте, что есть онлайн агенты.');
       setIsSubmitting(false);
     }
-  }, [target, selectedTypes, navigate]);
+  }, [target, selectedTypes, navigate, onCheckCreated]);
 
   const handleClear = useCallback(() => {
     setTarget('');
@@ -50,13 +62,18 @@ export const CheckForm: FC = () => {
   }, []);
 
   return (
-    <Card className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Создать новую проверку</h2>
+    <Card className="max-w-3xl mx-auto shadow-lg">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-3 bg-blue-100 rounded-lg">
+          <Search className="w-6 h-6 text-blue-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900">Создать новую проверку</h2>
+      </div>
       
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input
           label="Хост или IP-адрес"
-          placeholder="example.com или 192.168.1.1"
+          placeholder="example.com, 192.168.1.1 или example.com:8080"
           value={target}
           onChange={(e) => setTarget(e.target.value)}
           error={error && !target.trim() ? error : undefined}
@@ -67,8 +84,10 @@ export const CheckForm: FC = () => {
           onChange={setSelectedTypes}
         />
 
-        {error && selectedTypes.length === 0 && (
-          <p className="text-sm text-red-600">{error}</p>
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
         )}
 
         <div className="flex justify-end space-x-3">
@@ -76,6 +95,7 @@ export const CheckForm: FC = () => {
             type="button"
             variant="secondary"
             onClick={handleClear}
+            disabled={isSubmitting}
           >
             Очистить
           </Button>

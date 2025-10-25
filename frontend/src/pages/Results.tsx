@@ -5,9 +5,9 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { ResultsTable } from '../components/results/ResultsTable';
 import { ResultCard } from '../components/results/ResultCard';
 import { getCheck } from '../api/checks';
-import { Check } from '../types';
+import { Check, CheckResult } from '../types';
 import { formatDate } from '../utils/format';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Globe, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '../components/common/Button';
 
 export const Results: FC = () => {
@@ -19,14 +19,13 @@ export const Results: FC = () => {
   const fetchCheck = async () => {
     if (!checkId) return;
     
-    setIsLoading(true);
     try {
       const data = await getCheck(checkId);
       setCheck(data);
       setError('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch check:', err);
-      setError('Не удалось загрузить результаты проверки');
+      setError(err.message || 'Не удалось загрузить результаты проверки');
     } finally {
       setIsLoading(false);
     }
@@ -43,21 +42,27 @@ export const Results: FC = () => {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [checkId]);
+  }, [checkId, check?.status]);
 
   if (isLoading && !check) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <RefreshCw className="w-8 h-8 text-gray-400 animate-spin" />
+        <div className="text-center">
+          <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Загрузка результатов...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !check) {
     return (
-      <Card>
+      <Card className="border-red-200 bg-red-50">
         <div className="text-center py-12">
-          <p className="text-red-500 text-lg">{error || 'Проверка не найдена'}</p>
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 text-lg font-medium mb-2">
+            {error || 'Проверка не найдена'}
+          </p>
           <Link to="/" className="text-blue-600 hover:underline mt-4 inline-block">
             Вернуться на главную
           </Link>
@@ -66,9 +71,25 @@ export const Results: FC = () => {
     );
   }
 
+  const successCount = check.results?.filter(r => r.success).length || 0;
+  const failCount = (check.results?.length || 0) - successCount;
+  const avgDuration = check.results?.length 
+    ? Math.round(check.results.reduce((sum, r) => sum + r.duration_ms, 0) / check.results.length)
+    : 0;
+
+  // Группировка результатов по типам проверок
+  const resultsByType = check.results?.reduce((acc, result) => {
+    if (!acc[result.check_type]) {
+      acc[result.check_type] = [];
+    }
+    acc[result.check_type].push(result);
+    return acc;
+  }, {} as Record<string, CheckResult[]>) || {};
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center space-x-4">
           <Link
             to="/"
@@ -77,62 +98,99 @@ export const Results: FC = () => {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{check.target}</h1>
-            <p className="text-gray-600">Создано: {formatDate(check.created_at)}</p>
+            <div className="flex items-center gap-3">
+              <Globe className="w-8 h-8 text-blue-600" />
+              <h1 className="text-3xl font-bold text-gray-900">{check.target}</h1>
+            </div>
+            <p className="text-gray-600 mt-1">Создано: {formatDate(check.created_at)}</p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
           <StatusBadge status={check.status} />
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" onClick={fetchCheck}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Обновить
           </Button>
         </div>
       </div>
 
-      <Card title="Информация о проверке">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <p className="text-sm text-gray-500">Хост</p>
-            <p className="text-lg font-medium text-gray-900">{check.target}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Типы проверок</p>
-            <p className="text-lg font-medium text-gray-900">
-              {check.check_types.join(', ')}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Статус</p>
-            <div className="mt-1">
-              <StatusBadge status={check.status} />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-600 mb-1">Типов проверок</p>
+              <p className="text-2xl font-bold text-blue-900">{check.check_types.length}</p>
             </div>
+            <Globe className="w-8 h-8 text-blue-600" />
           </div>
-        </div>
-      </Card>
+        </Card>
 
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-600 mb-1">Успешно</p>
+              <p className="text-2xl font-bold text-green-900">{successCount}</p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-red-600 mb-1">Ошибок</p>
+              <p className="text-2xl font-bold text-red-900">{failCount}</p>
+            </div>
+            <XCircle className="w-8 h-8 text-red-600" />
+          </div>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-purple-600 mb-1">Ср. время</p>
+              <p className="text-2xl font-bold text-purple-900">{avgDuration}ms</p>
+            </div>
+            <Clock className="w-8 h-8 text-purple-600" />
+          </div>
+        </Card>
+      </div>
+
+      {/* Results by Type */}
       {check.results && check.results.length > 0 ? (
         <>
-          <Card title="Результаты по агентам">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {check.results.map((result) => (
-                <ResultCard key={result.id} result={result} />
-              ))}
-            </div>
-          </Card>
+          {Object.entries(resultsByType).map(([type, results]) => (
+            <Card key={type}>
+              <h2 className="text-xl font-bold text-gray-900 mb-4 capitalize">
+                {type} проверки
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {results.map((result) => (
+                  <ResultCard key={result.id} result={result} />
+                ))}
+              </div>
+            </Card>
+          ))}
 
-          <Card title="Детальная таблица">
+          <Card>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Детальная таблица</h2>
             <ResultsTable results={check.results} />
           </Card>
         </>
       ) : (
         <Card>
           <div className="text-center py-12">
-            <RefreshCw className="w-12 h-12 text-gray-400 mx-auto mb-4 animate-spin" />
-            <p className="text-gray-500 text-lg">Выполняется проверка...</p>
-            <p className="text-gray-400 text-sm mt-2">
+            <RefreshCw className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-spin" />
+            <p className="text-gray-700 text-lg font-medium mb-2">Выполняется проверка...</p>
+            <p className="text-gray-500 text-sm">
               Результаты появятся через несколько секунд
             </p>
+            <div className="mt-6">
+              <p className="text-xs text-gray-400">
+                Проверяем: {check.check_types.join(', ')}
+              </p>
+            </div>
           </div>
         </Card>
       )}
