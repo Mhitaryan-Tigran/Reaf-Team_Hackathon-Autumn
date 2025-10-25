@@ -6,10 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.120.0",
-<<<<<<< HEAD
-=======
     "jinja2>=3.1.6",
     "ruff>=0.14.2",
->>>>>>> 25b08c6 (fs)
     "uvicorn[standard]>=0.38.0",
 ]
