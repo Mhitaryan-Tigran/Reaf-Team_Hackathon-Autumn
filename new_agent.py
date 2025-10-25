@@ -23,7 +23,7 @@ TRACE_PORT = 80
 HOP_TIMEOUT = 1.0 
 
 # 1. Проверка HTTP/HTTPS
-def check_http_https(host: str) -> TimeResult:
+def check_http_https(host: str):
     protocols = ['https://', 'http://']
     timeout = 5
     
@@ -42,7 +42,7 @@ def check_http_https(host: str) -> TimeResult:
     return [False, 0.0]
 
 # 2. Проверка Ping (ICMP)
-def check_ping(host: str) -> TimeResult:
+def check_ping(host: str):
     try:
         response_list = pping(host, count=3, timeout=2, verbose=False)
         
@@ -56,7 +56,7 @@ def check_ping(host: str) -> TimeResult:
         return [False, 0.0]
 
 # 3. Проверка TCP-порта
-def check_tcp_port(host: str) -> TimeResult:
+def check_tcp_port(host: str):
     addr = host.split(":")
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
