@@ -23,3 +23,7 @@ def ResultPage(request: Request):
 @app.get("/agent_status")
 def AgentStatus(request: Request):
     return templates.TemplateResponse("agent_status.html", {"request": request})
+
+@app.post("/takeStatus")
+def getOtschetFromAgent():
+    pass

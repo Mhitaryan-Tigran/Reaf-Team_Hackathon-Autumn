@@ -4,9 +4,14 @@ import threading
 import json
 import asyncio
 import time
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
+agentUIID = os.getenv("agentUIID")
 tasks = []
 stopper = True
 
@@ -18,7 +23,6 @@ def tasker():
 @app.on_event("startup")
 async def start_async_worker():
     backgroundTask = threading.Thread(target=tasker, daemon=True)
-    print("qwe")
     backgroundTask.start()
 
 @app.on_event("shutdown")
