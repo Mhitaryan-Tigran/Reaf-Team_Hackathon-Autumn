@@ -56,19 +56,22 @@ def check_ping(host: str) -> TimeResult:
         return [False, 0.0]
 
 # 3. Проверка TCP-порта
-def check_tcp_port(host: str, port: int = 80) -> TimeResult:
+def check_tcp_port(host: str) -> TimeResult:
+    addr = host.split(":")
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(3)
 
         start_time = time.time()
-        result = sock.connect_ex((host, port))
+        result = sock.connect_ex((addr[0], int(addr[1])))
         # ПЕРЕВЕДЕНО В МИЛЛИСЕКУНДЫ
         elapsed_time = (time.time() - start_time) * 1000 
         sock.close()
 
+        print(addr)
+
         if result == 0:
-            return [True, round(elapsed_time)]
+            return [True, round(elapsed_time, 2)]
         else:
             return [False, 0.0]
 
@@ -154,6 +157,10 @@ def check(validReq: checkRequest):
             return check_http_https(validReq.target)
         case "ping":
             return check_ping(validReq.target)
+        case "tcp":
+            return check_tcp_port(validReq.target)
+        case "traceroute":
+            return check_traceroute(validReq.target)
 
 if __name__ == '__main__':
     HOST_TO_TEST = "apple.com"
