@@ -4,26 +4,25 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 from pydantic import BaseModel
-import uuid
-
-# conn = ""
-# cursor = conn.cursor()
-# cursor.execute("SELECT * FROM my_table")
-# rows = cursor.fetchall()
-
-app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+import uuidS
 
 @app.on_event("startup")
-async def startDBConnection():
-    global conn
-    conn = psycopg2.connect(database="serverDB", user="SERVER", password="hakatonski123", host="localhost", port="5432")
-
+async def start_async_worker():
+    """Запуск фонового потока при старте приложения."""
+    backgroundTask = threading.Thread(target=task_dispatcher, daemon=True)
+    backgroundTask.start()
+    print("Agent started and background dispatcher thread initiated.")
 
 @app.on_event("shutdown")
-async def stopDBConnection():
-    conn.close()
+async def stop_async_worker():
+    """Остановка фонового потока при завершении работы."""
+    stopper.set()
+    print("Agent shutdown signal sent.")
 
+@app.get("/")
+async def live():
+    """Проверка доступности агента (Heartbeat)."""
+    return Response(status_code=200, content=f"Agent is alive and running in {AGENT_COUNTRY}.")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
