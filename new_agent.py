@@ -29,7 +29,7 @@ def check_http_https(host: str) -> TimeResult:
             start_time = time.time()
             requests.head(url, timeout=timeout, allow_redirects=True)
             elapsed_time = (time.time() - start_time) * 1000
-            return [True, round(elapsed_time, 2)]
+            return [True, round(elapsed_time)]
         except requests.exceptions.RequestException:
             continue
             
@@ -40,7 +40,7 @@ def check_ping(host: str) -> TimeResult:
     try:
         response_list = pping(host, count=3, timeout=2, verbose=False)
         if response_list.success():
-            return [True, round(response_list.rtt_avg_ms, 2)]
+            return [True, round(response_list.rtt_avg_ms)]
         else:
             return [False, 0.0]
     except Exception:
@@ -57,7 +57,7 @@ def check_tcp_port(host: str) -> TimeResult:
         elapsed_time = (time.time() - start_time) * 1000
         sock.close()
         if result == 0:
-            return [True, round(elapsed_time, 2)]
+            return [True, round(elapsed_time)]
         else:
             return [False, 0.0]
     except Exception:
