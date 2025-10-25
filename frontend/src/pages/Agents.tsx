@@ -1,12 +1,35 @@
-import { FC } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { Card } from '../components/common/Card';
 import { AgentsList } from '../components/agents/AgentsList';
-import { mockAgents } from '../utils/mockData';
+import { listAgents } from '../api/agents';
+import { Agent } from '../types';
 import { Activity } from 'lucide-react';
 
 export const Agents: FC = () => {
-  const onlineCount = mockAgents.filter((a) => a.status === 'online').length;
-  const totalCount = mockAgents.length;
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        const data = await listAgents();
+        setAgents(data);
+      } catch (error) {
+        console.error('Failed to fetch agents:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAgents();
+    
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchAgents, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const onlineCount = agents.filter((a) => a.status === 'online').length;
+  const totalCount = agents.length;
 
   return (
     <div className="space-y-6">
@@ -58,7 +81,16 @@ export const Agents: FC = () => {
       </div>
 
       <Card>
-        <AgentsList agents={mockAgents} />
+        {isLoading ? (
+          <p className="text-gray-500 text-center py-8">Загрузка агентов...</p>
+        ) : agents.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            Агенты еще не зарегистрированы. <br/>
+            Запустите агента на VPS Aeza!
+          </p>
+        ) : (
+          <AgentsList agents={agents} />
+        )}
       </Card>
     </div>
   );

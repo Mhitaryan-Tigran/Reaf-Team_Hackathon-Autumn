@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:latest
+    container_name: hostchecker-postgres
+    environment:
+      POSTGRES_PASSWORD: hakatonski123
+      POSTGRES_USER: SERVER
+      POSTGRES_DB: serverDB
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U SERVER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hostchecker
+
+  # Redis
+  redis:
+    image: redis:latest
+    container_name: hostchecker-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hostchecker
+
+  # Backend (FastAPI)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hostchecker-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://SERVER:hakatonski123@postgres:5432/serverDB
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: "*"
+      MASTER_REGISTRATION_TOKEN: hackathon-token
+      PORT: 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hostchecker
+    restart: unless-stopped
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hostchecker-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - hostchecker
+    restart: unless-stopped
+
+  # Agent (Local)
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: hostchecker-agent-local
+    ports:
+      - "8001:8001"
+    environment:
+      MAIN_SERVER_URL: http://backend:8000
+      AGENT_COUNTRY: Local
+      AGENT_NAME: Agent-Local-Docker
+      AGENT_UIID: local-docker-agent
+      AGENT_API_TOKEN: local-token
+      POLL_INTERVAL: 5
+      MAX_CONCURRENT_TASKS: 10
+      PORT: 8001
+    depends_on:
+      - backend
+    networks:
+      - hostchecker
+    restart: unless-stopped
+
+networks:
+  hostchecker:
+    driver: bridge
+
+volumes:
+  postgres_data:
+

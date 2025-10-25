@@ -1,13 +1,32 @@
-import { FC } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { CheckForm } from '../components/check/CheckForm';
 import { Card } from '../components/common/Card';
-import { mockChecks } from '../utils/mockData';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { formatDate } from '../utils/format';
 import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
+import { listChecks } from '../api/checks';
+import { Check } from '../types';
 
 export const Dashboard: FC = () => {
+  const [checks, setChecks] = useState<Check[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchChecks = async () => {
+      try {
+        const data = await listChecks();
+        setChecks(data);
+      } catch (error) {
+        console.error('Failed to fetch checks:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChecks();
+  }, []);
+
   return (
     <div className="space-y-8">
       <div>
@@ -22,13 +41,17 @@ export const Dashboard: FC = () => {
       <CheckForm />
 
       <Card title="Недавние проверки">
-        {mockChecks.length === 0 ? (
+        {isLoading ? (
+          <p className="text-gray-500 text-center py-8">
+            Загрузка...
+          </p>
+        ) : checks.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
             Проверки еще не выполнялись
           </p>
         ) : (
           <div className="space-y-4">
-            {mockChecks.map((check) => (
+            {checks.map((check) => (
               <Link
                 key={check.id}
                 to={`/results/${check.id}`}

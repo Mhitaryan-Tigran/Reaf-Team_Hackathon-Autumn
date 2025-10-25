@@ -4,6 +4,7 @@ import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { CheckTypeSelector } from './CheckTypeSelector';
+import { createCheck } from '../../api/checks';
 
 export const CheckForm: FC = () => {
   const navigate = useNavigate();
@@ -28,12 +29,18 @@ export const CheckForm: FC = () => {
 
     setIsSubmitting(true);
 
-    // Имитация создания проверки
-    setTimeout(() => {
-      // В будущем здесь будет реальный API вызов
-      const mockCheckId = Math.random().toString(36).substring(7);
-      navigate(`/results/${mockCheckId}`);
-    }, 500);
+    try {
+      // Реальный API вызов
+      const check = await createCheck({
+        target: target.trim(),
+        checks: selectedTypes,
+      });
+      navigate(`/results/${check.id}`);
+    } catch (err) {
+      console.error('Failed to create check:', err);
+      setError('Не удалось создать проверку. Попробуйте снова.');
+      setIsSubmitting(false);
+    }
   }, [target, selectedTypes, navigate]);
 
   const handleClear = useCallback(() => {

@@ -1,0 +1,32 @@
+[Unit]
+Description=Host Checker Agent (Moscow)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/hostchecker-agent
+EnvironmentFile=/opt/hostchecker-agent/.env.agent
+
+# Pull latest image (optional, remove if building locally)
+# ExecStartPre=/usr/bin/docker-compose -f docker-compose.agent.yml pull
+
+# Start agent container
+ExecStart=/usr/bin/docker-compose -f docker-compose.agent.yml up
+
+# Stop agent container
+ExecStop=/usr/bin/docker-compose -f docker-compose.agent.yml down
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hostchecker-agent
+
+[Install]
+WantedBy=multi-user.target
+

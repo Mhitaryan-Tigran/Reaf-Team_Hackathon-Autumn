@@ -1,0 +1,42 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies for network tools
+RUN apt-get update && apt-get install -y \
+    iputils-ping \
+    traceroute \
+    dnsutils \
+    net-tools \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy agent code
+COPY agent_production.py .
+
+# Environment variables (override in docker run or docker-compose)
+ENV MAIN_SERVER_URL=http://localhost:8000
+ENV AGENT_COUNTRY=Russia
+ENV AGENT_NAME=Agent-Moscow
+ENV AGENT_UIID=
+ENV AGENT_API_TOKEN=
+ENV POLL_INTERVAL=5
+ENV MAX_CONCURRENT_TASKS=10
+ENV PORT=8001
+
+# Expose port
+EXPOSE 8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8001/ || exit 1
+
+# Run agent
+CMD ["python", "-u", "-m", "uvicorn", "agent_production:app", "--host", "0.0.0.0", "--port", "8001"]
+

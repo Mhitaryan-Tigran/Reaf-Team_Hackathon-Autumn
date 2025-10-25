@@ -1,19 +1,70 @@
-import { FC } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { ResultsTable } from '../components/results/ResultsTable';
 import { ResultCard } from '../components/results/ResultCard';
-import { mockCheck, mockChecks } from '../utils/mockData';
+import { getCheck } from '../api/checks';
+import { Check } from '../types';
 import { formatDate } from '../utils/format';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { Button } from '../components/common/Button';
 
 export const Results: FC = () => {
   const { checkId } = useParams<{ checkId: string }>();
+  const [check, setCheck] = useState<Check | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
 
-  // В будущем здесь будет реальный API вызов
-  const check = checkId === '1' ? mockCheck : mockChecks.find((c) => c.id === checkId) || mockCheck;
+  const fetchCheck = async () => {
+    if (!checkId) return;
+    
+    setIsLoading(true);
+    try {
+      const data = await getCheck(checkId);
+      setCheck(data);
+      setError('');
+    } catch (err) {
+      console.error('Failed to fetch check:', err);
+      setError('Не удалось загрузить результаты проверки');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCheck();
+    
+    // Polling для обновления результатов
+    const interval = setInterval(() => {
+      if (check?.status !== 'completed' && check?.status !== 'failed') {
+        fetchCheck();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [checkId]);
+
+  if (isLoading && !check) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <RefreshCw className="w-8 h-8 text-gray-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !check) {
+    return (
+      <Card>
+        <div className="text-center py-12">
+          <p className="text-red-500 text-lg">{error || 'Проверка не найдена'}</p>
+          <Link to="/" className="text-blue-600 hover:underline mt-4 inline-block">
+            Вернуться на главную
+          </Link>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: hostchecker-agent-moscow
+    restart: unless-stopped
+    environment:
+      # ВАЖНО: Заполните эти переменные после регистрации агента!
+      MAIN_SERVER_URL: ${MAIN_SERVER_URL:-https://hostchecker.railway.app}
+      AGENT_COUNTRY: ${AGENT_COUNTRY:-Russia}
+      AGENT_NAME: ${AGENT_NAME:-Agent-Moscow-Aeza}
+      AGENT_UIID: ${AGENT_UIID:-}
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:-}
+      POLL_INTERVAL: ${POLL_INTERVAL:-5}
+      MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS:-10}
+      PORT: 8001
+    ports:
+      - "8001:8001"
+    networks:
+      - hostchecker-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  hostchecker-network:
+    driver: bridge
+
