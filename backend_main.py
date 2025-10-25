@@ -28,7 +28,8 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 MASTER_REGISTRATION_TOKEN = os.getenv("MASTER_REGISTRATION_TOKEN", "master-registration-token")
 
 # CORS Origins
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,https://*.vercel.app").split(",")
+CORS_ORIGINS_STR = os.getenv("CORS_ORIGINS", "*")
+CORS_ORIGINS = ["*"] if CORS_ORIGINS_STR == "*" else CORS_ORIGINS_STR.split(",")
 
 # ============= DATABASE & REDIS CONNECTION =============
 
@@ -108,6 +109,8 @@ async def lifespan(app: FastAPI):
     print("✅ Database initialized")
     print("✅ Redis connected")
     print(f"✅ CORS origins: {CORS_ORIGINS}")
+    print(f"✅ CORS credentials: False")
+    print(f"✅ Backend ready for Vercel connection")
     
     yield
     
@@ -131,7 +134,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=False,  # Отключено для совместимости с Vercel
     allow_methods=["*"],
     allow_headers=["*"],
 )
