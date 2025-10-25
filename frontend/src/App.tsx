@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Results } from './pages/Results';
@@ -8,15 +8,16 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <Router>
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/results/:checkId" element={<Results />} />
             <Route path="/agents" element={<Agents />} />
+            <Route path="/results/:checkId" element={<Results />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>
-      </BrowserRouter>
+      </Router>
     </ErrorBoundary>
   );
 }
