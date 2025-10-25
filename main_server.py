@@ -54,7 +54,7 @@ class checkRequest(BaseModel):
     target: str
     task: str
 
-@app.post("/takeStatus")
+@app.post("/takeReport")
 def getReportFromAgent(report: reportFromAgent):
     cursor = conn.cursor()
     cursor.execute("SELECT EXISTS(SELECT 1 FROM Agents WHERE uiid = %s)", (report.UIID,))
