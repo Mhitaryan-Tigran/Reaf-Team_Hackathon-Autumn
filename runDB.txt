@@ -1,6 +1,6 @@
 docker run -d --name hakaton-local -e POSTGRES_PASSWORD=hakatonski123 -e POSTGRES_USER=SERVER -e POSTGRES_DB=serverDB -p 5432:5432 postgres
 
-CREATE TABLE Agents(ip varchar(16), UIID varchar(36));
+CREATE TABLE Agents(ip varchar(24), UIID varchar(36));
 
 CREATE TABLE Reports(country varchar(56), UIID varchar(36), result varchar(20));
 
