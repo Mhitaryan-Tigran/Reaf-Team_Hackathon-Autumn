@@ -75,6 +75,15 @@ class checkRequest(BaseModel):
     target: str
     task: str
 
+@app.get("/getAgents")
+async def getAgents():
+    cursor = conn.cursor()
+    cursor.execute("select * from agents;")
+    rows = cursor.fetchall()
+    print(rows)
+    cursor.close()
+    return rows
+
 @app.post("/getTask")
 async def getTask(request: Request):
     rawBody = await request.body()
