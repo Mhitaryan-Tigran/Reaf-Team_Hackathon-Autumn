@@ -1,34 +1,35 @@
-"""
-Host Checker - Backend API
-Сервис проверки хостов и DNS резолвинга
+from scapy.all import IP, ICMP, sr1
+from scapy.layers.inet import UDP
+import socket
 
-Для запуска фронтенда см. файл FRONTEND_SETUP.md
+def manual_traceroute(destination, max_hops=30):
+    print(f"Manual traceroute to {destination}...")
+    reply_list = []
 
-Backend TODO:
-1. Настроить FastAPI
-2. Подключить PostgreSQL и Redis
-3. Реализовать API endpoints:
-   - POST /api/checks - создать проверку
-   - GET /api/checks - список проверок
-   - GET /api/checks/{id} - получить проверку
-   - GET /api/agents - список агентов
-   - POST /api/agents/register - регистрация агента
-   - POST /api/agents/heartbeat - heartbeat агента
-4. Реализовать систему очередей (Redis)
-5. Реализовать WebSocket для real-time обновлений
+    try:
+        destination_ip = socket.gethostbyname(destination)
+        print(f"Destination IP: {destination_ip}")
+    except socket.gaierror:
+        print(f"Could not resolve hostname: {destination}")
+        return
 
-См. документацию в папке docs/
-Особенно полезны:
-- docs/ARCHITECTURE.md - архитектура системы
-- docs/PROJECT_STRUCTURE.md - структура кода
-- docs/IMPLEMENTATION_PLAN.md - план реализации
-"""
+    try:
+        for ttl in range(1, max_hops + 1):
+            packet = IP(dst=destination_ip, ttl=ttl) / UDP(dport=33434)        
 
-if __name__ == "__main__":
-    print("Backend еще не реализован")
-    print("Фронтенд уже готов и работает! См. FRONTEND_SETUP.md")
-    print("\nДля запуска фронтенда:")
-    print("  cd frontend")
-    print("  npm install")
-    print("  npm run dev")
+            reply = sr1(packet, verbose=0, timeout=2)
 
+            if reply is None:
+                print(f"{ttl:2d}  * * *")
+            elif reply.type == 3:  
+                print(f"{ttl:2d}  {reply.src} (Reached Destination)")
+                break
+            else:
+                print(f"{ttl:2d}  {reply.src}")
+                reply_list.append(reply.src)
+
+    finally:
+            print(reply_list)
+
+if __name__ == '__main__':
+    manual_traceroute("donstu.ru")
