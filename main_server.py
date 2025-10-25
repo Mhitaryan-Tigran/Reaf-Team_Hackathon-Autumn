@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
+import uuid
 from pydantic import BaseModel
 
 # conn = ""
@@ -112,8 +113,4 @@ def startCheck(req: checkRequest):
     cursor.execute("INSERT INTO Tasks (UIID, target, task) VALUES (%s, %s, %s);", (str(taskUIID), req.target, req.task))
     conn.commit()
 
-    match req.task:
-        case "ping":
-            for ip in ipAddrs:
-                print("ping", ip)
-                print(taskUIID, req)
+    
