@@ -4,6 +4,10 @@ CREATE TABLE Agents(ip varchar(16), UIID varchar(36));
 
 CREATE TABLE Reports(country varchar(56), UIID varchar(36), task varchar(12), result varchar(20));
 
+CREATE TABLE Tasks(UIID varchar(36), task varchar(12));
+
 INSERT INTO Agents (ip, UIID) VALUES ('123.123.125.125', '0ad4436f-af02-43d8-b4b1-986b429c2c79');
 
 INSERT INTO Reports (country, UIID, task, result) VALUES ('Russia', '0ad4436f-af02-43d8-b4b1-986b429c2c79', 'ping', '30ms');
+
+INSERT INTO Tasks (UIID, task) VALUES ('0ad4436f-af02-43d8-b4b1-986b429c2c79', 'google.com');
