@@ -75,8 +75,20 @@ class checkRequest(BaseModel):
     target: str
     task: str
 
-@app.post("/getReports")
-async def getReports(request: Request):
+@app.post("/getTask")
+async def getTask(request: Request):
+    rawBody = await request.body()
+    clearBody = rawBody.decode("utf-8")
+    print(clearBody)
+    cursor = conn.cursor()
+    cursor.execute("select * from tasks where uiid=%s", (clearBody,))
+    rows = cursor.fetchall()
+    print(rows)
+    cursor.close()
+    return rows
+
+@app.post("/getReport")
+async def getReport(request: Request):
     rawBody = await request.body()
     clearBody = rawBody.decode("utf-8")
     print(clearBody)
