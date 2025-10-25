@@ -122,4 +122,4 @@ def startCheck(req: checkRequest):
     cursor.execute("INSERT INTO Tasks (UIID, target, task) VALUES (%s, %s, %s);", (str(taskUIID), req.target, req.task))
     conn.commit()
 
-    
+    return taskUIID
