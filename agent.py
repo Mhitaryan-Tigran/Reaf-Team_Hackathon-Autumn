@@ -6,7 +6,6 @@ import time
 import subprocess
 import requests
 import socket
-import uuid
 import sys # Импорт для проверки ОС
 
 # --- Конфигурация ---
@@ -27,10 +26,6 @@ class CheckRequest(BaseModel):
     target: str
 
 # --- Вспомогательные функции для выполнения проверок ---
-
-# ВНИМАНИЕ: Команды 'ping' и 'traceroute' зависят от ОС. 
-# На Linux: ping -c, traceroute
-# На Windows: ping -n, tracert
 
 def run_ping(target: str) -> str:
     """Выполняет команду ping и возвращает результат."""
@@ -96,33 +91,24 @@ def fetch_task_from_server() -> dict | None:
     Выполняет GET-запрос к бэкенду для получения одной задачи из очереди.
     """
     try:
-        # В реальной системе здесь может потребоваться токен агента
         response = requests.get(TASK_QUEUE_ENDPOINT, timeout=3)
         response.raise_for_status() 
-        
-        # Ожидаем, что сервер вернет JSON с одной задачей или пустой JSON/204 No Content
         data = response.json()
         
-        # Сервер может вернуть {"task_uuid": "...", "check_type": "...", "target": "..."}
         if data and isinstance(data, dict) and data.get("task_uuid"):
             return data
             
-        return None # Нет задач
+        return None
         
     except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            print(f"Error: Task endpoint {TASK_QUEUE_ENDPOINT} not found. Check main server.")
-        elif e.response.status_code == 204: # No Content - ожидаемый ответ при пустой очереди
+        if e.response.status_code == 204: 
             return None
-        else:
-             print(f"HTTP Error fetching task: {e.response.status_code} - {e.response.text}")
+        print(f"HTTP Error fetching task: {e.response.status_code} - {e.response.text}")
         return None
     except requests.exceptions.RequestException as e:
-        # Ошибка соединения
         print(f"Connection Error fetching task: {e}")
         return None
     except Exception as e:
-        # Ошибка парсинга JSON
         print(f"Unexpected error fetching task: {e}")
         return None
 
@@ -131,7 +117,7 @@ def fetch_task_from_server() -> dict | None:
 def send_result_to_server(report_data: dict):
     """Отправляет результат проверки на основной сервер."""
     result_endpoint = f"{MAIN_SERVER_URL}/api/v1/results" 
-    print(f"Sending result for UUID {report_data.get('UIID')}")
+    print(f"Sending result for UUID {report_data.get('task_uuid')}")
     try:
         response = requests.post(result_endpoint, json=report_data, timeout=5)
         response.raise_for_status() 
@@ -144,13 +130,14 @@ def send_result_to_server(report_data: dict):
 def process_task(task_data: dict):
     """Выполняет проверку и отправляет результат."""
     
+    # >>> Убеждаемся, что UUID извлечен <<<
     task_uuid = task_data.get("task_uuid")
     check_type = task_data.get("check_type")
     target = task_data.get("target")
 
     result_content = f"Error: Task {task_uuid} not processed."
     
-    # 2. Выполнение проверки (логика осталась та же)
+    # 2. Выполнение проверки 
     try:
         if check_type in ["http", "https"]:
             result_content = run_http_check(target)
@@ -165,7 +152,6 @@ def process_task(task_data: dict):
                 result_content = run_tcp_connect(host, port)
             else:
                 result_content = "TCP-port check requires target in format 'host:port'."
-        # TODO: Добавить run_dns_lookup (A, AAAA, MX, NS, TXT) [cite: 24]
         else:
             result_content = f"Unsupported check type: {check_type}"
             
@@ -175,7 +161,8 @@ def process_task(task_data: dict):
     # 3. Формирование отчета
     report_data = {
         "country": AGENT_COUNTRY,
-        "UIID": task_uuid,
+        # >>> UUID возвращается обратно серверу <<<
+        "task_uuid": task_uuid, 
         "task": check_type,
         "result": result_content
     }
@@ -185,25 +172,18 @@ def process_task(task_data: dict):
 
 
 def task_dispatcher():
-    """
-    Фоновый поток для опроса сервера на наличие задач и их диспетчеризации.
-    Реализует многопоточную очередь: опрос -> получение -> запуск в новом потоке.
-    """
+    """Фоновый поток для опроса сервера на наличие задач и их диспетчеризации."""
     print(f"--- Task Dispatcher started. Polling server every {POLLING_INTERVAL_SECONDS} seconds ---")
     while not stopper.is_set():
         
-        # 1. Опрос сервера
         task_from_server = fetch_task_from_server()
         
         if task_from_server:
             print(f"Task received (UUID: {task_from_server.get('task_uuid')}). Dispatching...")
-            # 2. Запуск обработки в отдельном потоке (многопоточная очередь)
             threading.Thread(target=process_task, args=(task_from_server,), daemon=True).start()
         else:
             print(f"No new tasks found on server at {TASK_QUEUE_ENDPOINT}.")
             
-        # 3. Ожидание до следующего опроса
-        # Используем stopper.wait() для неблокирующего ожидания, которое можно прервать при shutdown
         stopper.wait(POLLING_INTERVAL_SECONDS)
         
     print("--- Task Dispatcher stopped ---")
@@ -228,9 +208,6 @@ async def live():
     """Проверка доступности агента (Heartbeat)."""
     return Response(status_code=200, content=f"Agent is alive and running in {AGENT_COUNTRY}.")
 
-# Маршрут для POST /check можно оставить как запасной или убрать, 
-# если весь функционал перенесен на опрос (polling)
-# В данной реализации основной механизм получения задач - task_dispatcher (polling).
 @app.post("/check")
 async def check_task_direct(req_data: CheckRequest):
     """Принимает задачу напрямую (без очереди) и запускает ее обработку."""
