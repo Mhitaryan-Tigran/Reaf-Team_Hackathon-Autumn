@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
+from pydantic import BaseModel
 
 # conn = ""
 # cursor = conn.cursor()
@@ -41,6 +42,26 @@ def AgentStatus(request: Request):
     return templates.TemplateResponse("agent_status.html", {"request": request})
 
 # Api
+
+class reportFromAgent(BaseModel):
+    country: str
+    UIID: str
+    rquestUIID: str
+    task: str
+    result: str
+
+class checkRequest(BaseModel):
+    target: str
+    task: str
+
 @app.post("/takeStatus")
-def getReportFromAgent():
-    pass
+def getReportFromAgent(report: reportFromAgent):
+    cursor = conn.cursor()
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM Agents WHERE uiid = %s)", (report.UIID,))
+    rows = cursor.fetchall()
+    print(rows[0][0])
+    cursor.close()
+
+@app.post("/start_check")
+def startCheck(req: checkRequest):
+    print(req)
