@@ -4,7 +4,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 import uuid
+import json
 from pydantic import BaseModel
+import requests
+
 
 # conn = ""
 # cursor = conn.cursor()
@@ -108,6 +111,12 @@ def startCheck(req: checkRequest):
     ipAddrs = []
     for row in rows:
         ipAddrs.append(row[0])
+        body = {
+            "target": req.target,
+            "task": req.task,
+            "taskUUID": str(taskUIID)
+        }
+        requests.post(url=f"{row[0]}/check", data=json.dumps(body))
     print(ipAddrs, taskUIID)
 
     cursor.execute("INSERT INTO Tasks (UIID, target, task) VALUES (%s, %s, %s);", (str(taskUIID), req.target, req.task))
