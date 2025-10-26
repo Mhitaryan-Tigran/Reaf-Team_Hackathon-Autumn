@@ -534,10 +534,18 @@
         document.querySelectorAll('.checkbox-item').forEach(item => {
             item.addEventListener('click', function() {
                 const checkbox = this.querySelector('input[type="checkbox"]');
-                checkbox.checked = !checkbox.checked;
-                this.classList.toggle('checked', checkbox.checked);
+                
+                checkboxes.forEach(cb => {
+                    cb.checked = false;
+                    cb.closest('.checkbox-item').classList.remove('checked');
+                });
+
+                // Установить отметку только у выбранного чекбокса
+                checkbox.checked = true;
+                this.classList.add('checked');
             });
-        });
+});
+
 
         clearBtn.addEventListener('click', () => {
             hostInput.value = '';
@@ -573,12 +581,11 @@
             try {
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
-                console.log('Успешный ответ от сервера:', data);
+                console.log('Успешный ответ от сервера:', data[0]);
                 return data;
             } catch (error) {
                 console.error('Ошибка при отправке запроса:', error);
@@ -591,11 +598,11 @@
         createBtn.addEventListener('click', async () => {
             if (createBtn.disabled) return;
             const target = hostInput.value.trim();
-            const selectedTasks = Array.from(checkboxes)
-                .filter(cb => cb.checked)
-                .map(cb => cb.value);
-
-            if (selectedTasks.length === 0) {
+            const task = Array.from(checkboxes).find(cb => cb.checked);
+            if (checkedCheckbox) {
+                // Делайте что-то с отмеченным чекбоксом
+                console.log('Отмеченный чекбокс:', checkedCheckbox.value);
+                if (selectedTasks.length === 0) {
                 alert('Выберите хотя бы один тип проверки');
                 return;
             }
@@ -604,24 +611,28 @@
             createBtn.textContent = 'Отправка...';
 
             try {
-                const results = await Promise.all(
-                    selectedTasks.map(task => checkHost(target, task))
-                );
+                const results = await checkHost(target, task)
                 console.log('Все проверки завершены:', results);
                 alert('Проверки успешно отправлены! Результаты в консоли.');
             } catch (err) {
+                console.log(err);
                 alert('Ошибка при выполнении проверки. Подробности в консоли.');
             } finally {
                 createBtn.disabled = false;
                 createBtn.textContent = 'Создать проверку';
             }
+            } else {
+                console.log('Нет отмеченных чекбоксов');
+            }
+
+            
         });
 
         document.addEventListener('DOMContentLoaded', () => {
             const pingCb = document.querySelector('input[value="ping"]');
             if (pingCb) {
                 pingCb.checked = true;
-                pingCb.closest('.checkbox-item').classList.add('checked');
+                pingCb.closest('.checkbox-item').classList.add('chаecked');
             }
             updateCreateButton();
         });
