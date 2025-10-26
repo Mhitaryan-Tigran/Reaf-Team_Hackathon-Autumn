@@ -13,6 +13,10 @@ from scapy.all import IP, ICMP, sr1
 from scapy.layers.inet import UDP
 from dotenv import load_dotenv
 import dns.resolver
+import subprocess
+import re
+import platform
+from typing import Union
 load_dotenv()
 
 
@@ -112,16 +116,42 @@ def check_http_https(host: str):
     return False
 
 # 2. Ping
-def check_ping(host: str):
+def check_ping(host: str) -> Union[int, bool]:
+    system = platform.system()
+    if system == "Windows":
+        ping_param = "-n"
+    else:
+        ping_param = "-c"
+
     try:
-        response_list = pping(host, count=3, timeout=2, verbose=False)
-        if response_list.success():
-            return round(response_list.rtt_avg_ms)
+        result = subprocess.run(
+            ["ping", ping_param, "3", "-W", "2", host],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            return False
+
+        output = result.stdout
+
+        
+        if system == "Darwin":
+            match = re.search(r"round-trip min/avg/max/stddev = [\d.]+/([\d.]+)/[\d.]+/[\d.]+ ms", output)
+        else:  
+            match = re.search(r"rtt min/avg/max/mdev = [\d.]+/([\d.]+)/[\d.]+/[\d.]+ ms", output)
+
+        if match:
+            avg_rtt = float(match.group(1))
+            return round(avg_rtt)
         else:
             return False
-    except Exception:
-        return False
 
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return False
+    
 # 3. TCP-порт
 def check_tcp_port(host: str):
     addr = host.split(":")
