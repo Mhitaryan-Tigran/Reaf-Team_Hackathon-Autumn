@@ -8,7 +8,6 @@ services:
     container_name: hostchecker-agent-moscow
     restart: unless-stopped
     environment:
-      # ВАЖНО: Заполните эти переменные после регистрации агента!
       MAIN_SERVER_URL: ${MAIN_SERVER_URL:-https://hostchecker.railway.app}
       AGENT_COUNTRY: ${AGENT_COUNTRY:-Russia}
       AGENT_NAME: ${AGENT_NAME:-Agent-Moscow-Aeza}

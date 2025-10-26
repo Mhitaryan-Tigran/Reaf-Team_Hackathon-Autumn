@@ -35,18 +35,15 @@ export const CheckForm: FC<CheckFormProps> = ({ onCheckCreated }) => {
     setIsSubmitting(true);
 
     try {
-      // Реальный API вызов
       const check = await createCheck({
         target: target.trim(),
         checks: selectedTypes,
       });
       
-      // Callback для обновления списка проверок
       if (onCheckCreated) {
         onCheckCreated();
       }
       
-      // Переход на страницу результатов
       navigate(`/results/${check.id}`);
     } catch (err: any) {
       console.error('Failed to create check:', err);
@@ -107,4 +104,3 @@ export const CheckForm: FC<CheckFormProps> = ({ onCheckCreated }) => {
     </Card>
   );
 };
-

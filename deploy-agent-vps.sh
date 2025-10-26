@@ -1,18 +1,14 @@
 #!/bin/bash
-# Скрипт для деплоя агента на VPS Aeza
-# Использование: ./deploy-agent-vps.sh
 
 set -e
 
 echo "🚀 Deploying Host Checker Agent to VPS Aeza..."
 
-# Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Configuration
 VPS_IP="138.124.14.179"
 VPS_USER="root"
 DEPLOY_DIR="/opt/hostchecker-agent"
@@ -23,7 +19,6 @@ echo "   User: $VPS_USER"
 echo "   Deploy directory: $DEPLOY_DIR"
 echo ""
 
-# Check if SSH key is configured
 echo -e "${YELLOW}🔑 Checking SSH connection...${NC}"
 if ! ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no $VPS_USER@$VPS_IP "echo 'SSH OK'" > /dev/null 2>&1; then
     echo -e "${RED}❌ Cannot connect to VPS. Please check:${NC}"
@@ -35,11 +30,9 @@ fi
 echo -e "${GREEN}✅ SSH connection successful${NC}"
 echo ""
 
-# Create deploy directory
 echo -e "${YELLOW}📁 Creating deploy directory...${NC}"
 ssh $VPS_USER@$VPS_IP "mkdir -p $DEPLOY_DIR"
 
-# Copy files to VPS
 echo -e "${YELLOW}📤 Uploading files to VPS...${NC}"
 scp -r \
     agent_production.py \
@@ -53,15 +46,12 @@ scp -r \
 echo -e "${GREEN}✅ Files uploaded${NC}"
 echo ""
 
-# Install dependencies on VPS
 echo -e "${YELLOW}🔧 Installing dependencies on VPS...${NC}"
 ssh $VPS_USER@$VPS_IP << 'ENDSSH'
 cd /opt/hostchecker-agent
 
-# Update system
 apt-get update
 
-# Install Docker if not installed
 if ! command -v docker &> /dev/null; then
     echo "Installing Docker..."
     curl -fsSL https://get.docker.com -o get-docker.sh
@@ -71,7 +61,6 @@ if ! command -v docker &> /dev/null; then
     rm get-docker.sh
 fi
 
-# Install Docker Compose if not installed
 if ! command -v docker-compose &> /dev/null; then
     echo "Installing Docker Compose..."
     curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
@@ -84,7 +73,6 @@ ENDSSH
 echo -e "${GREEN}✅ Dependencies installed${NC}"
 echo ""
 
-# Setup environment file
 echo -e "${YELLOW}⚙️ Setting up environment...${NC}"
 echo -e "${RED}⚠️ ВАЖНО: Вам нужно настроить .env.agent файл!${NC}"
 echo ""
@@ -107,15 +95,12 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
-# Build and start Docker container
 echo -e "${YELLOW}🐳 Building and starting Docker container...${NC}"
 ssh $VPS_USER@$VPS_IP << 'ENDSSH'
 cd /opt/hostchecker-agent
 
-# Stop existing container if running
 docker-compose -f docker-compose.agent.yml down || true
 
-# Build and start
 docker-compose -f docker-compose.agent.yml build
 docker-compose -f docker-compose.agent.yml up -d
 
@@ -125,7 +110,6 @@ ENDSSH
 echo -e "${GREEN}✅ Docker container started${NC}"
 echo ""
 
-# Setup systemd service (optional)
 echo -e "${YELLOW}🔧 Setup systemd service for auto-start? (y/n)${NC}"
 read -p "" -n 1 -r
 echo ""
@@ -133,16 +117,12 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     ssh $VPS_USER@$VPS_IP << 'ENDSSH'
 cd /opt/hostchecker-agent
 
-# Copy service file
 cp hostchecker-agent.service /etc/systemd/system/
 
-# Reload systemd
 systemctl daemon-reload
 
-# Enable service
 systemctl enable hostchecker-agent.service
 
-# Start service
 systemctl start hostchecker-agent.service
 
 echo "✅ Systemd service configured"

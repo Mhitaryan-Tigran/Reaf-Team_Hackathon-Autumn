@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 
-/**
- * Хук для работы с WebSocket
- * Используется для real-time обновлений результатов проверки
- */
 export const useWebSocket = <T>(url: string, enabled: boolean = true) => {
   const [data, setData] = useState<T | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -57,10 +53,4 @@ export const useWebSocket = <T>(url: string, enabled: boolean = true) => {
   return { data, isConnected, error };
 };
 
-// Пример использования:
-// const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
-// const { data: liveUpdate, isConnected } = useWebSocket(
-//   `${WS_URL}/api/ws/checks/${checkId}`,
-//   check?.status === 'in_progress'
-// );
 

@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:latest
     container_name: hostchecker-postgres
@@ -21,7 +20,6 @@ services:
     networks:
       - hostchecker
 
-  # Redis
   redis:
     image: redis:latest
     container_name: hostchecker-redis
@@ -35,7 +33,6 @@ services:
     networks:
       - hostchecker
 
-  # Backend (FastAPI)
   backend:
     build:
       context: .
@@ -58,7 +55,6 @@ services:
       - hostchecker
     restart: unless-stopped
 
-  # Frontend (React + Vite)
   frontend:
     build:
       context: ./frontend
@@ -74,7 +70,6 @@ services:
       - hostchecker
     restart: unless-stopped
 
-  # Agent (Local)
   agent:
     build:
       context: .

@@ -13,7 +13,6 @@ import os
 app = FastAPI(title="Host Checker", version="1.0.0")
 templates = Jinja2Templates(directory="templates")
 
-# CORS для работы с фронтендом
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",") if os.getenv("CORS_ORIGINS") != "*" else ["*"]
 app.add_middleware(
     CORSMiddleware,
@@ -23,7 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Глобальное подключение к БД не удолять
 conn = None
 
 @app.on_event("startup")
@@ -74,7 +72,6 @@ def ResultPage(request: Request):
 def AgentStatus(request: Request):
     return templates.TemplateResponse("agent_status.html", {"request": request})
 
-# Api
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -82,7 +79,6 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            # логика: эхо обратно
             
             cursor = conn.cursor()
             cursor.execute("select * from reports where uiid=%s", (data,))
@@ -91,7 +87,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
             await websocket.send_text(rows)
     except WebSocketDisconnect:
-        # клиент отключился
         pass
 
 class reportFromAgent(BaseModel):

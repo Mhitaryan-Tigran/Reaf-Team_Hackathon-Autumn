@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 
-/**
- * Хук для периодического опроса данных
- * Используется для обновления результатов проверки
- */
 export const usePolling = <T>(
   fetchFn: () => Promise<T>,
   interval: number = 2000,
@@ -32,13 +28,10 @@ export const usePolling = <T>(
       }
     };
 
-    // Первый запрос сразу
     poll();
 
-    // Запускаем интервал
     intervalRef.current = setInterval(poll, interval);
 
-    // Очистка при размонтировании
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -47,12 +40,4 @@ export const usePolling = <T>(
   }, [fetchFn, interval, enabled]);
 
   return { data, error, isLoading };
-};
-
-// Пример использования:
-// const { data: check, isLoading } = usePolling(
-//   () => getCheck(checkId),
-//   2000,
-//   check?.status !== 'completed'
-// );
-
+}

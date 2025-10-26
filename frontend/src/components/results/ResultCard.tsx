@@ -42,7 +42,6 @@ const ResultCardComponent: FC<ResultCardProps> = ({ result }) => {
 
     const data = result.data;
 
-    // HTTP проверка
     if (result.check_type === 'http') {
       return (
         <div className="space-y-2">
@@ -74,7 +73,6 @@ const ResultCardComponent: FC<ResultCardProps> = ({ result }) => {
       );
     }
 
-    // Ping проверка
     if (result.check_type === 'ping') {
       return (
         <div className="space-y-2">
@@ -100,7 +98,6 @@ const ResultCardComponent: FC<ResultCardProps> = ({ result }) => {
       );
     }
 
-    // DNS проверка
     if (result.check_type === 'dns') {
       return (
         <div className="space-y-2">
@@ -132,7 +129,6 @@ const ResultCardComponent: FC<ResultCardProps> = ({ result }) => {
       );
     }
 
-    // TCP проверка
     if (result.check_type === 'tcp') {
       return (
         <div className="space-y-2">
@@ -156,7 +152,6 @@ const ResultCardComponent: FC<ResultCardProps> = ({ result }) => {
       );
     }
 
-    // Traceroute проверка
     if (result.check_type === 'traceroute') {
       return (
         <div className="space-y-2">
@@ -176,7 +171,6 @@ const ResultCardComponent: FC<ResultCardProps> = ({ result }) => {
       );
     }
 
-    // Общий случай - показываем raw data
     return (
       <div className="bg-gray-50 rounded p-3">
         <pre className="text-xs text-gray-700 overflow-auto max-h-32">
@@ -190,7 +184,6 @@ const ResultCardComponent: FC<ResultCardProps> = ({ result }) => {
     <div className={`border-2 rounded-lg p-4 transition-all hover:shadow-md ${
       result.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
     }`}>
-      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           {getCheckIcon(result.check_type, result.success)}
@@ -209,7 +202,6 @@ const ResultCardComponent: FC<ResultCardProps> = ({ result }) => {
         </div>
       </div>
 
-      {/* Details */}
       {renderDetails()}
     </div>
   );
