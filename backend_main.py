@@ -14,18 +14,31 @@ import redis
 import json
 import uuid
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 import asyncio
 from contextlib import asynccontextmanager
 
 # ============= CONFIGURATION =============
 
 # Database Configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://SERVER:hakatonski123@localhost:5432/serverDB")
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+# БЕЗОПАСНОСТЬ: используйте переменные окружения для production!
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    # Только для локальной разработки
+    DATABASE_URL = "postgresql://SERVER:hakatonski123@localhost:5432/serverDB"
+    print("⚠️  WARNING: Using default DATABASE_URL for development. Set DATABASE_URL env var for production!")
+
+REDIS_URL = os.getenv("REDIS_URL")
+if not REDIS_URL:
+    REDIS_URL = "redis://localhost:6379"
+    print("⚠️  WARNING: Using default REDIS_URL for development. Set REDIS_URL env var for production!")
 
 # Agent Registration Token
-MASTER_REGISTRATION_TOKEN = os.getenv("MASTER_REGISTRATION_TOKEN", "master-registration-token")
+# БЕЗОПАСНОСТЬ: обязательно установите безопасный токен в production!
+MASTER_REGISTRATION_TOKEN = os.getenv("MASTER_REGISTRATION_TOKEN")
+if not MASTER_REGISTRATION_TOKEN:
+    MASTER_REGISTRATION_TOKEN = "INSECURE-DEV-TOKEN-CHANGE-IN-PRODUCTION"
+    print("🚨 CRITICAL: Using default MASTER_REGISTRATION_TOKEN! Set secure token in production!")
 
 # CORS Origins
 CORS_ORIGINS_STR = os.getenv("CORS_ORIGINS", "*")
@@ -108,9 +121,9 @@ async def lifespan(app: FastAPI):
     
     print("✅ Database initialized")
     print("✅ Redis connected")
-    print(f"✅ CORS origins: {CORS_ORIGINS}")
-    print(f"✅ CORS credentials: False")
-    print(f"✅ Backend ready for Vercel connection")
+    print("✅ CORS origins:", CORS_ORIGINS)
+    print("✅ CORS credentials: False")
+    print("✅ Backend ready for Vercel connection")
     
     yield
     
@@ -138,6 +151,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============= INPUT VALIDATION =============
+
+def validate_target(target: str) -> bool:
+    """Валидация target для предотвращения injection атак"""
+    if not target or len(target) > 500:  # Максимальная длина из схемы БД
+        return False
+    
+    # Базовая валидация - разрешаем URL, домены, IP
+    # Запрещаем опасные символы
+    dangerous_chars = [';', '&', '|', '$', '`', '\n', '\r']
+    if any(char in target for char in dangerous_chars):
+        return False
+    
+    return True
+
+def validate_check_types(check_types: list) -> bool:
+    """Валидация типов проверок"""
+    allowed_types = ['http', 'https', 'ping', 'tcp', 'traceroute', 'dns', 
+                     'dns-A', 'dns-AAAA', 'dns-MX', 'dns-NS', 'dns-TXT', 'dns-CNAME']
+    
+    if not check_types or len(check_types) > 10:  # Максимум 10 типов за раз
+        return False
+    
+    return all(ct in allowed_types for ct in check_types)
 
 # ============= MODELS =============
 
@@ -322,8 +360,8 @@ async def list_agents() -> List[Agent]:
                 WHERE last_heartbeat < NOW() - INTERVAL '60 seconds'
             """)
             conn.commit()
-        except:
-            pass
+        except Exception:
+            pass  # Ignore errors in status update
         
         cursor.execute("""
             SELECT id, name, location, status, 
@@ -388,6 +426,13 @@ async def get_agent(agent_id: str) -> Agent:
 @app.post("/api/checks")
 async def create_check(request: CreateCheckRequest) -> Check:
     """Create new check"""
+    
+    # БЕЗОПАСНОСТЬ: валидация входных данных
+    if not validate_target(request.target):
+        raise HTTPException(status_code=400, detail="Invalid target format")
+    
+    if not validate_check_types(request.checks):
+        raise HTTPException(status_code=400, detail="Invalid check types")
     
     check_id = str(uuid.uuid4())
     
@@ -577,6 +622,22 @@ async def get_agent_tasks(agent_id: str, limit: int = 10):
 async def submit_result(report: AgentResultReport):
     """Agent submits check result"""
     
+    # БЕЗОПАСНОСТЬ: проверка размера данных от агента
+    result_str = str(report.result)
+    if len(result_str) > 100000:  # Максимум 100KB на результат
+        raise HTTPException(status_code=413, detail="Result data too large")
+    
+    # БЕЗОПАСНОСТЬ: валидация что агент существует
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT id FROM agents WHERE id = %s", (report.UIID,))
+    if not cursor.fetchone():
+        cursor.close()
+        raise HTTPException(status_code=403, detail="Unknown agent")
+    
+    cursor.close()
+    
     result_id = str(uuid.uuid4())
     
     conn = get_db()
@@ -588,7 +649,7 @@ async def submit_result(report: AgentResultReport):
         success = True
         error = None
         duration_ms = result_data.get("response_time_ms", 0) if isinstance(result_data, dict) else 0
-    except:
+    except (json.JSONDecodeError, ValueError, TypeError):
         result_data = {"raw": report.result}
         success = "error" not in report.result.lower() and "failed" not in report.result.lower()
         error = report.result if not success else None
@@ -644,6 +705,6 @@ async def take_report_legacy(report: AgentResultReport):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)
 

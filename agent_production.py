@@ -16,6 +16,7 @@ import os
 import dns.resolver
 import dns.reversename
 from typing import Dict, Any
+import re
 
 # ============= CONFIGURATION =============
 
@@ -49,6 +50,39 @@ class CheckRequest(BaseModel):
     taskUIID: str
     check_type: str
     target: str
+
+# ============= INPUT VALIDATION =============
+
+def validate_hostname(hostname: str) -> bool:
+    """Валидация имени хоста/домена для предотвращения command injection"""
+    # Разрешаем только буквы, цифры, точки, дефисы и двоеточие (для IPv6 и портов)
+    # Максимальная длина 253 символа для домена
+    if not hostname or len(hostname) > 253:
+        return False
+    
+    # Проверка на опасные символы
+    dangerous_chars = [';', '&', '|', '$', '`', '\n', '\r', '<', '>']
+    if any(char in hostname for char in dangerous_chars):
+        return False
+    
+    # Паттерн для валидного hostname/IP/IP:port
+    pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9\-\.:])*[a-zA-Z0-9]$|^[a-zA-Z0-9]$'
+    return bool(re.match(pattern, hostname))
+
+def sanitize_target(target: str) -> str:
+    """Очистка и валидация target"""
+    target = target.strip()
+    
+    # Удаляем протокол если есть
+    for protocol in ['http://', 'https://']:
+        if target.startswith(protocol):
+            target = target[len(protocol):]
+    
+    # Удаляем путь если есть
+    if '/' in target:
+        target = target.split('/')[0]
+    
+    return target
 
 # ============= DNS LOOKUP FUNCTIONS =============
 
@@ -144,8 +178,16 @@ def run_dns_full_lookup(domain: str) -> Dict[str, Any]:
 
 def run_ping(target: str) -> str:
     """Выполняет команду ping"""
+    # БЕЗОПАСНОСТЬ: валидация target перед выполнением subprocess
+    sanitized_target = sanitize_target(target)
+    if not validate_hostname(sanitized_target):
+        return json.dumps({
+            "success": False,
+            "error": "Invalid hostname format - security validation failed"
+        })
+    
     is_windows = sys.platform.startswith('win')
-    cmd = ['ping', '-n' if is_windows else '-c', '4', target]
+    cmd = ['ping', '-n' if is_windows else '-c', '4', sanitized_target]
     try:
         start_time = time.time()
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
@@ -153,6 +195,10 @@ def run_ping(target: str) -> str:
         
         # Parse ping statistics
         output = result.stdout.strip()
+        
+        # БЕЗОПАСНОСТЬ: ограничение размера вывода
+        if len(output) > 10000:
+            output = output[:10000] + "\n... (truncated)"
         
         return json.dumps({
             "success": result.returncode == 0,
@@ -173,18 +219,32 @@ def run_ping(target: str) -> str:
 
 def run_traceroute(target: str) -> str:
     """Выполняет команду traceroute"""
+    # БЕЗОПАСНОСТЬ: валидация target перед выполнением subprocess
+    sanitized_target = sanitize_target(target)
+    if not validate_hostname(sanitized_target):
+        return json.dumps({
+            "success": False,
+            "error": "Invalid hostname format - security validation failed"
+        })
+    
     is_windows = sys.platform.startswith('win')
     cmd = ['tracert'] if is_windows else ['traceroute', '-m', '20']
-    cmd.append(target)
+    cmd.append(sanitized_target)
     
     try:
         start_time = time.time()
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         end_time = time.time()
         
+        output = result.stdout.strip()
+        
+        # БЕЗОПАСНОСТЬ: ограничение размера вывода
+        if len(output) > 15000:
+            output = output[:15000] + "\n... (truncated)"
+        
         return json.dumps({
             "success": result.returncode == 0,
-            "output": result.stdout.strip(),
+            "output": output,
             "response_time_ms": round((end_time - start_time) * 1000, 2)
         })
     except subprocess.TimeoutExpired:
@@ -246,7 +306,7 @@ def run_http_check(url: str) -> str:
             url = 'http://' + url
         
         start_time = time.time()
-        response = requests.get(url, timeout=10, allow_redirects=True, verify=False)
+        response = requests.get(url, timeout=10, allow_redirects=True, verify=True)
         end_time = time.time()
         
         response_data = {
@@ -526,6 +586,6 @@ async def check_task_direct(req_data: CheckRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8001))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    agent_port = int(os.getenv("PORT", "8001"))
+    uvicorn.run(app, host="0.0.0.0", port=agent_port)
 
