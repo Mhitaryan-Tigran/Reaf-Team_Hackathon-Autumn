@@ -168,7 +168,8 @@ def check_dns(host_and_type: str):
         domain = parts[0]
         record_type = parts[1].upper() if len(parts) > 1 else "A"
         
-        resolver = dns.resolver.Resolver()
+        resolver = dns.resolver.Resolver(configure=False)
+        resolver.nameservers = ['8.8.8.8', '8.8.4.4', '1.1.1.1']
         resolver.timeout = 3
         resolver.lifetime = 3
         
