@@ -2,95 +2,25 @@ from pydantic import BaseModel
 import requests
 import socket
 import time
-import threading
-import uuid
-import os
-import json
 from pythonping import ping as pping
 from typing import List, Union
 from fastapi import FastAPI
 from scapy.all import IP, ICMP, sr1
 from scapy.layers.inet import UDP
-from dotenv import load_dotenv
-load_dotenv()
-
+import dns.resolver
 
 app = FastAPI()
 
-agentUUID = os.getenv("agentUUID")
-agentcountry = os.getenv("country")
-masterIPandPort = os.getenv("masterIPandPort")
-
-newTasks = []
-completedTasks = []
-
-backTHRWork = True
+# Типы результатов
+TimeResult = List[Union[bool, float]]
+TraceResult = List[Union[bool, List[str]]]
 
 MAX_HOPS = 30
 TRACE_PORT = 80
 HOP_TIMEOUT = 1.0
 
-def backgroundSender():
-    global backTHRWork
-    global completedTasks
-    while backTHRWork:
-        if completedTasks != []:
-            print(completedTasks[0])
-            body = {
-                "country": str(agentcountry),
-                "UIID": str(agentUUID),
-                "taskUIID": str(completedTasks[0]['taskUUID']),
-                "result": str(completedTasks[0]['result'])
-            }
-            req = requests.post(url=f"{masterIPandPort}/takeReport", data=json.dumps(body))
-
-            completedTasks.pop(0)
-        else:
-            time.sleep(1)
-
-def backgroundTasker():
-    global newTasks
-    global completedTasks
-    global backTHRWork
-    while backTHRWork:
-        if newTasks != []:
-            print(newTasks)
-            match newTasks[0]["task"]:
-                case "http(s)":
-                    taskTocomplete = newTasks[0]
-                    taskTocomplete["result"] = check_http_https(newTasks[0]["target"])
-                    completedTasks.append(taskTocomplete)
-                case "ping":
-                    taskTocomplete = newTasks[0]
-                    taskTocomplete["result"] = check_ping(newTasks[0]["target"])
-                    completedTasks.append(taskTocomplete)
-                case "tcp":
-                    taskTocomplete = newTasks[0]
-                    taskTocomplete["result"] = check_tcp_port(newTasks[0]["target"])
-                    completedTasks.append(taskTocomplete)
-                case "traceroute":
-                    taskTocomplete = newTasks[0]
-                    taskTocomplete["result"] = manual_traceroute(newTasks[0]["target"])
-                    completedTasks.append(taskTocomplete)
-                case _:
-                    return {"error": "Unknown task"}
-            newTasks.pop(0)
-        else:
-            time.sleep(1)
-
-@app.on_event("startup")
-async def startDBConnection():
-    threading.Thread(target=backgroundTasker).start()
-    threading.Thread(target=backgroundSender).start()
-    pass
-
-@app.on_event("shutdown")
-async def stopDBConnection():
-    global backTHRWork
-    backTHRWork = False
-
 # 1. Проверка HTTP/HTTPS
-def check_http_https(host: str):
+def check_http_https(host: str) -> TimeResult:
     protocols = ['https://', 'http://']
     timeout = 5
     
@@ -100,25 +30,25 @@ def check_http_https(host: str):
             start_time = time.time()
             requests.head(url, timeout=timeout, allow_redirects=True)
             elapsed_time = (time.time() - start_time) * 1000
-            return round(elapsed_time)
+            return [True, round(elapsed_time)]
         except requests.exceptions.RequestException:
             continue
             
-    return False
+    return [False, 0.0]
 
-# 2. Ping
-def check_ping(host: str):
+# 2. Проверка Ping (ICMP)
+def check_ping(host: str) -> TimeResult:
     try:
         response_list = pping(host, count=3, timeout=2, verbose=False)
         if response_list.success():
-            return round(response_list.rtt_avg_ms)
+            return [True, round(response_list.rtt_avg_ms)]
         else:
-            return False
+            return [False, 0.0]
     except Exception:
-        return False
+        return [False, 0.0]
 
-# 3. TCP-порт
-def check_tcp_port(host: str):
+# 3. Проверка TCP-порта
+def check_tcp_port(host: str) -> TimeResult:
     addr = host.split(":")
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -128,13 +58,13 @@ def check_tcp_port(host: str):
         elapsed_time = (time.time() - start_time) * 1000
         sock.close()
         if result == 0:
-            return round(elapsed_time)
+            return [True, round(elapsed_time)]
         else:
-            return False
+            return [False, 0.0]
     except Exception:
-        return False
+        return [False, 0.0]
 
-# 4. traceroute
+# 4. Низкоуровневая трассировка (manual_traceroute)
 def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
     reply_list = []
     try:
@@ -148,9 +78,43 @@ def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
         if reply is None:
             continue
         reply_list.append(reply.src)
-        if reply.type == 3:
+        if reply.type == 3:  # Reached destination
             break
     return reply_list
+
+# 5. Обертка для API: check_traceroute
+def check_traceroute(host: str) -> TraceResult:
+    try:
+        hops = manual_traceroute(host, MAX_HOPS)
+        if hops:
+            return [True, hops]
+        else:
+            return [False, []]
+    except Exception:
+        return [False, []]
+
+# 6. ПРОВЕРКА ДНС
+def check_a_record(domain):
+    try:
+        addrs = []
+        answers = dns.resolver.resolve(domain, 'A')
+        print(f"A Records for {domain}:")
+        for rdata in answers:
+            print(f"  - {rdata.address}")
+            addrs.append(rdata.address)
+        
+
+        return addrs
+        
+    except dns.resolver.NoAnswer:
+        return f"No A records found for {domain}"
+    except dns.resolver.NXDOMAIN:
+        return f"Domain '{domain}' does not exist."
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+
+# === Модели запросов ===
 
 class reportFromAgent(BaseModel):
     country: str
@@ -161,18 +125,22 @@ class reportFromAgent(BaseModel):
 class checkRequest(BaseModel):
     target: str
     task: str
-    taskUUID: str
 
 # === Основное API ===
 
 @app.post("/check")
 def check(validReq: checkRequest):
-    newTask = {
-        "target": validReq.target,
-        "task": validReq.task,
-        "taskUUID": validReq.taskUUID
-    }
-    newTasks.append(newTask)
+    match validReq.task:
+        case "http(s)":
+            return check_http_https(validReq.target)
+        case "ping":
+            return check_ping(validReq.target)
+        case "tcp":
+            return check_tcp_port(validReq.target)
+        case "traceroute":
+            return check_traceroute(validReq.target)
+        case _:
+            return {"error": "Unknown task"}
 
 # === Локальное тестирование ===
 
@@ -191,4 +159,7 @@ if __name__ == '__main__':
     print(f"🚪 TCP 443: {check_tcp_port(f'{HOST_TO_TEST}:443')}")
 
     # 4. Traceroute
-    print(f"🛣️ Traceroute: {manual_traceroute(HOST_TO_TEST)}")
+    print(f"🛣️ Traceroute: {check_traceroute(HOST_TO_TEST)}")
+
+    # 5. DNS
+    print(f"📡 DNS: {check_a_record(HOST_TO_TEST)}")
