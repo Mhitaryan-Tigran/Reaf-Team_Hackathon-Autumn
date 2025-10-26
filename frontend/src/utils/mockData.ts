@@ -1,6 +1,5 @@
 import { Agent, Check, CheckResult } from '../types';
 
-// Моковые агенты
 export const mockAgents: Agent[] = [
   {
     id: '1',
@@ -31,7 +30,6 @@ export const mockAgents: Agent[] = [
   },
 ];
 
-// Моковые результаты проверок
 export const mockCheckResults: CheckResult[] = [
   {
     id: '1',
@@ -116,7 +114,6 @@ export const mockCheckResults: CheckResult[] = [
   },
 ];
 
-// Моковая проверка
 export const mockCheck: Check = {
   id: '1',
   target: 'google.com',
@@ -127,7 +124,6 @@ export const mockCheck: Check = {
   results: mockCheckResults,
 };
 
-// Список моковых проверок
 export const mockChecks: Check[] = [
   mockCheck,
   {
@@ -146,4 +142,3 @@ export const mockChecks: Check[] = [
     completed_at: new Date(Date.now() - 90000).toISOString(),
   },
 ];
-
