@@ -36,10 +36,6 @@ async def read_html():
     #     html_content = file.read()
     return FileResponse("templates/index.html")
 
-@app.get("/reports/{report_id}")
-async def get_report(report_id: str):
-    return {"report_id": report_id}
-
 # Api
 
 @app.websocket("/ws")
