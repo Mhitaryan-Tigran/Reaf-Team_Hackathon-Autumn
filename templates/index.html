@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Host Checker</title>
     <style>
-                * {
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -18,7 +18,6 @@
             line-height: 1.6;
         }
 
-        /* Шапка */
         header {
             background: linear-gradient(to right, #4a90e2, #9013fe);
             color: white;
@@ -66,14 +65,12 @@
             color: #9013fe;
         }
 
-        /* Основной контент */
         .container {
             max-width: 1200px;
             margin: 2rem auto;
             padding: 0 1.5rem;
         }
 
-        /* Страница Агенты */
         .agents-page h1 {
             font-size: 1.75rem;
             margin-bottom: 0.5rem;
@@ -167,7 +164,6 @@
             color: #444;
         }
 
-        /* Главная страница */
         .home-page {
             text-align: center;
             padding: 3rem 1rem;
@@ -241,7 +237,6 @@
         .home-stat.checks .icon { background: #e6f0ff; color: #007bff; }
         .home-stat.completed .icon { background: #f5e6ff; color: #9013fe; }
 
-        /* Форма создания проверки */
         .check-form {
             background: white;
             padding: 2rem;
@@ -356,7 +351,6 @@
             cursor: not-allowed;
         }
 
-        /* Адаптивность */
         @media (max-width: 768px) {
             .header-container {
                 flex-direction: column;
@@ -377,11 +371,9 @@
                 width: 100%;
             }
         }
-
     </style>
 </head>
 <body>
-    <!-- Шапка -->
     <header>
         <div class="header-container">
             <div class="logo">
@@ -396,7 +388,6 @@
     </header>
 
     <div class="container">
-        <!-- Страница Главная -->
         <section id="home-page" class="home-page">
             <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23grad)'/%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%234a90e2'/%3E%3Cstop offset='100%25' stop-color='%239013fe'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M35 50 Q50 35, 65 50 L60 65 Q50 55, 40 65 Z' fill='white'/%3E%3C/svg%3E" alt="Host Checker" class="home-logo">
             <h1>Host Checker</h1>
@@ -464,7 +455,6 @@
             </div>
         </section>
 
-        <!-- Страница Агенты -->
         <section id="agents-page" class="agents-page" style="display: none;">
             <h1>Агенты проверки</h1>
             <p>Управление распределенными агентами для выполнения проверок</p>
@@ -513,7 +503,6 @@
     </div>
 
     <script>
-        // Переключение между страницами
         const homeLink = document.getElementById('home-link');
         const agentsLink = document.getElementById('agents-link');
         const homePage = document.getElementById('home-page');
@@ -535,16 +524,13 @@
             homeLink.classList.remove('active');
         });
 
-        // По умолчанию открыта главная
         homeLink.classList.add('active');
 
-        // Форма создания проверки
         const hostInput = document.getElementById('host');
         const createBtn = document.getElementById('create-btn');
         const clearBtn = document.getElementById('clear-btn');
         const checkboxes = document.querySelectorAll('.checkbox-item input[type="checkbox"]');
 
-        // Обработчик клика по чекбоксам
         document.querySelectorAll('.checkbox-item').forEach(item => {
             item.addEventListener('click', function() {
                 const checkbox = this.querySelector('input[type="checkbox"]');
@@ -553,14 +539,12 @@
             });
         });
 
-        // Очистка формы
         clearBtn.addEventListener('click', () => {
             hostInput.value = '';
             checkboxes.forEach(cb => {
                 cb.checked = false;
                 cb.closest('.checkbox-item').classList.remove('checked');
             });
-            // Сброс только Ping
             const pingCb = document.querySelector('input[value="ping"]');
             if (pingCb) {
                 pingCb.checked = true;
@@ -569,7 +553,6 @@
             updateCreateButton();
         });
 
-        // Проверка валидности поля
         function updateCreateButton() {
             const hostValue = hostInput.value.trim();
             createBtn.disabled = hostValue === '';
@@ -577,14 +560,71 @@
 
         hostInput.addEventListener('input', updateCreateButton);
 
-        // Инициализация
         updateCreateButton();
-        // Установка Ping по умолчанию
         const pingCb = document.querySelector('input[value="ping"]');
         if (pingCb) {
             pingCb.checked = true;
             pingCb.closest('.checkbox-item').classList.add('checked');
         }
+
+        async function checkHost(target, task) {
+            const url = 'http://127.0.0.1:8000/check';
+            const payload = { target: target.trim(), task: task.trim() };
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                console.log('Успешный ответ от сервера:', data);
+                return data;
+            } catch (error) {
+                console.error('Ошибка при отправке запроса:', error);
+                throw error;
+            }
+        }
+
+        window.checkHost = checkHost;
+
+        createBtn.addEventListener('click', async () => {
+            if (createBtn.disabled) return;
+            const target = hostInput.value.trim();
+            const selectedTasks = Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+
+            if (selectedTasks.length === 0) {
+                alert('Выберите хотя бы один тип проверки');
+                return;
+            }
+
+            createBtn.disabled = true;
+            createBtn.textContent = 'Отправка...';
+
+            try {
+                const results = await Promise.all(
+                    selectedTasks.map(task => checkHost(target, task))
+                );
+                console.log('Все проверки завершены:', results);
+                alert('Проверки успешно отправлены! Результаты в консоли.');
+            } catch (err) {
+                alert('Ошибка при выполнении проверки. Подробности в консоли.');
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = 'Создать проверку';
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const pingCb = document.querySelector('input[value="ping"]');
+            if (pingCb) {
+                pingCb.checked = true;
+                pingCb.closest('.checkbox-item').classList.add('checked');
+            }
+            updateCreateButton();
+        });
     </script>
 </body>
 </html>
