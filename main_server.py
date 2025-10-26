@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 import uuid
@@ -30,11 +30,15 @@ async def stopDBConnection():
 
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def read_html():
-    with open("templates/index.html") as file:
-        html_content = file.read()
-    return HTMLResponse(content=html_content)
+    # with open("templates/index.html") as file:
+    #     html_content = file.read()
+    return FileResponse("templates/index.html")
+
+@app.get("/reports/{report_id}")
+async def get_report(report_id: str):
+    return {"report_id": report_id}
 
 # Api
 

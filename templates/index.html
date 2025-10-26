@@ -568,7 +568,7 @@
         }
 
         async function checkHost(target, task) {
-            const url = 'http://127.0.0.1:8000/check';
+            const url = '/start_check';
             const payload = { target: target.trim(), task: task.trim() };
             try {
                 const response = await fetch(url, {
