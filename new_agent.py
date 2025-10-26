@@ -89,7 +89,6 @@ async def stopDBConnection():
     global backTHRWork
     backTHRWork = False
 
-# 1. Проверка HTTP/HTTPS
 def check_http_https(host: str):
     protocols = ['https://', 'http://']
     timeout = 5
@@ -106,7 +105,6 @@ def check_http_https(host: str):
             
     return False
 
-# 2. Проверка Ping (ICMP)
 def check_ping(host: str):
     try:
         response_list = pping(host, count=3, timeout=2, verbose=False)
@@ -117,7 +115,6 @@ def check_ping(host: str):
     except Exception:
         return False
 
-# 3. Проверка TCP-порта
 def check_tcp_port(host: str):
     addr = host.split(":")
     try:
@@ -134,7 +131,6 @@ def check_tcp_port(host: str):
     except Exception:
         return False
 
-# 4. Низкоуровневая трассировка (manual_traceroute)
 def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
     reply_list = []
     try:
@@ -148,11 +144,11 @@ def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
         if reply is None:
             continue
         reply_list.append(reply.src)
-        if reply.type == 3:  # Reached destination
+        if reply.type == 3:
             break
     return reply_list
 
-# 5. Обертка для API: check_traceroute
+
 def check_traceroute(host: str):
     try:
         hops = manual_traceroute(host, MAX_HOPS)
@@ -192,16 +188,16 @@ def check(validReq: checkRequest):
 if __name__ == '__main__':
     HOST_TO_TEST = "google.com"
 
-    print(f"========================================\nТестирование хоста: {HOST_TO_TEST}\n========================================")
+    print(f"Тестирование хоста: {HOST_TO_TEST}")
 
     # 1. HTTP/HTTPS
-    print(f"🌐 HTTP/HTTPS: {check_http_https(HOST_TO_TEST)}")
+    print(f"HTTP/HTTPS: {check_http_https(HOST_TO_TEST)}")
 
     # 2. Ping
-    print(f"🟢 Ping: {check_ping(HOST_TO_TEST)}")
+    print(f"Ping: {check_ping(HOST_TO_TEST)}")
 
-    # 3. TCP-порт (443)
-    print(f"🚪 TCP 443: {check_tcp_port(f'{HOST_TO_TEST}:443')}")
+    # 3. TCP-порт
+    print(f"TCP: {check_tcp_port(f'{HOST_TO_TEST}:443')}")
 
     # 4. Traceroute
-    print(f"🛣️ Traceroute: {check_traceroute(HOST_TO_TEST)}")
+    print(f"Traceroute: {check_traceroute(HOST_TO_TEST)}")

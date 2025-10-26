@@ -23,21 +23,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Глобальное подключение к БД
+# Глобальное подключение к БД не удолять
 conn = None
 
 @app.on_event("startup")
 async def startDBConnection():
     global conn
-    # БЕЗОПАСНОСТЬ: используйте DATABASE_URL из переменных окружения!
     database_url = os.getenv("DATABASE_URL")
     
     if database_url:
-        # Production: используем DATABASE_URL от Railway
         conn = psycopg2.connect(database_url)
-        print("✅ Connected to database via DATABASE_URL")
     else:
-        # Development: локальные credentials
         db_host = os.getenv("DB_HOST", "localhost")
         db_port = os.getenv("DB_PORT", "5432")
         db_name = os.getenv("DB_NAME", "serverDB")
@@ -51,20 +47,17 @@ async def startDBConnection():
             host=db_host,
             port=db_port
         )
-        print("⚠️  Using local database credentials - set DATABASE_URL for production!")
 
 
 @app.on_event("shutdown")
 async def stopDBConnection():
     if conn:
         conn.close()
-        print("🛑 Database connection closed")
 
-# Static files (если есть директория static)
 try:
     app.mount("/static", StaticFiles(directory="static"), name="static")
 except Exception:
-    print("⚠️  Static directory not found, skipping static files mount")
+    print("Статики нет")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -146,8 +139,7 @@ async def getReport(request: Request):
 
 @app.post("/takeReport")
 def getReportFromAgent(report: reportFromAgent):
-    # БЕЗОПАСНОСТЬ: ограничение размера данных
-    if len(str(report.result)) > 100000:  # 100KB максимум
+    if len(str(report.result)) > 100000:
         return Response(status_code=413, content="Result data too large")
     
     cursor = conn.cursor()
@@ -165,14 +157,8 @@ def getReportFromAgent(report: reportFromAgent):
 
 @app.post("/start_check")
 def startCheck(req: checkRequest):
-    # БЕЗОПАСНОСТЬ: валидация входных данных
     if not req.target or len(req.target) > 500:
         return Response(status_code=400, content="Invalid target")
-    
-    # Проверка на опасные символы
-    dangerous_chars = [';', '&', '|', '$', '`', '\n', '\r']
-    if any(char in req.target for char in dangerous_chars):
-        return Response(status_code=400, content="Invalid characters in target")
     
     taskUIID = uuid.uuid4()
     cursor = conn.cursor()
@@ -199,7 +185,7 @@ def startCheck(req: checkRequest):
 
     return {"taskUIID": str(taskUIID)}
 
-# Health check endpoint
+
 @app.get("/health")
 def health_check():
     try:
