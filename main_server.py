@@ -28,22 +28,13 @@ async def stopDBConnection():
     conn.close()
 
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/", response_class=HTMLResponse)
-def IndexPage(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-
-@app.get("/res")
-def ResultPage(request: Request):
-    return templates.TemplateResponse("result.html", {"request": request})
-
-
-@app.get("/agent_status")
-def AgentStatus(request: Request):
-    return templates.TemplateResponse("agent_status.html", {"request": request})
+async def read_html():
+    with open("templates/index.html") as file:
+        html_content = file.read()
+    return HTMLResponse(content=html_content)
 
 # Api
 
