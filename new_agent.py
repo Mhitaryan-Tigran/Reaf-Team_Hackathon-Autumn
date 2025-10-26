@@ -191,4 +191,4 @@ if __name__ == '__main__':
     print(f"🚪 TCP 443: {check_tcp_port(f'{HOST_TO_TEST}:443')}")
 
     # 4. Traceroute
-    print(f"🛣️ Traceroute: {check_traceroute(HOST_TO_TEST)}")
+    print(f"🛣️ Traceroute: {manual_traceroute(HOST_TO_TEST)}")
