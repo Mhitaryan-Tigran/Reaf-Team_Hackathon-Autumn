@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from scapy.all import IP, ICMP, sr1
 from scapy.layers.inet import UDP
 from dotenv import load_dotenv
+import dns.resolver
 load_dotenv()
 
 
@@ -71,6 +72,10 @@ def backgroundTasker():
                 case "traceroute":
                     taskTocomplete = newTasks[0]
                     taskTocomplete["result"] = manual_traceroute(newTasks[0]["target"])
+                    completedTasks.append(taskTocomplete)
+                case "dns":
+                    taskTocomplete = newTasks[0]
+                    taskTocomplete["result"] = check_dns(newTasks[0]["target"])
                     completedTasks.append(taskTocomplete)
                 case _:
                     return {"error": "Unknown task"}
@@ -152,6 +157,43 @@ def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
             break
     return reply_list
 
+# 5. DNS lookup
+def check_dns(host_and_type: str):
+    """
+    Формат: 'domain.com:A' или 'domain.com:MX' и т.д.
+    Поддерживаемые типы: A, AAAA, MX, NS, TXT
+    """
+    try:
+        parts = host_and_type.split(":")
+        domain = parts[0]
+        record_type = parts[1].upper() if len(parts) > 1 else "A"
+        
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 3
+        resolver.lifetime = 3
+        
+        start_time = time.time()
+        answers = resolver.resolve(domain, record_type)
+        elapsed_time = (time.time() - start_time) * 1000
+        
+        results = []
+        for rdata in answers:
+            if record_type == "MX":
+                results.append(f"{rdata.preference} {rdata.exchange}")
+            elif record_type == "TXT":
+                results.append(str(rdata).strip('"'))
+            else:
+                results.append(str(rdata))
+        
+        return {
+            "records": results,
+            "time_ms": round(elapsed_time)
+        }
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers):
+        return False
+    except Exception:
+        return False
+
 class reportFromAgent(BaseModel):
     country: str
     UIID: str
@@ -192,3 +234,10 @@ if __name__ == '__main__':
 
     # 4. Traceroute
     print(f"🛣️ Traceroute: {manual_traceroute(HOST_TO_TEST)}")
+    
+    # 5. DNS lookup
+    print(f"🔍 DNS A: {check_dns(f'{HOST_TO_TEST}:A')}")
+    print(f"🔍 DNS AAAA: {check_dns(f'{HOST_TO_TEST}:AAAA')}")
+    print(f"🔍 DNS MX: {check_dns(f'{HOST_TO_TEST}:MX')}")
+    print(f"🔍 DNS NS: {check_dns(f'{HOST_TO_TEST}:NS')}")
+    print(f"🔍 DNS TXT: {check_dns(f'{HOST_TO_TEST}:TXT')}")
