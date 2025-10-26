@@ -70,7 +70,7 @@ def backgroundTasker():
                     completedTasks.append(taskTocomplete)
                 case "traceroute":
                     taskTocomplete = newTasks[0]
-                    taskTocomplete["result"] = check_traceroute(newTasks[0]["target"])
+                    taskTocomplete["result"] = manual_traceroute(newTasks[0]["target"])
                     completedTasks.append(taskTocomplete)
                 case _:
                     return {"error": "Unknown task"}
@@ -106,7 +106,7 @@ def check_http_https(host: str):
             
     return False
 
-# 2. Проверка Ping (ICMP)
+# 2. Ping
 def check_ping(host: str):
     try:
         response_list = pping(host, count=3, timeout=2, verbose=False)
@@ -117,7 +117,7 @@ def check_ping(host: str):
     except Exception:
         return False
 
-# 3. Проверка TCP-порта
+# 3. TCP-порт
 def check_tcp_port(host: str):
     addr = host.split(":")
     try:
@@ -134,7 +134,7 @@ def check_tcp_port(host: str):
     except Exception:
         return False
 
-# 4. Низкоуровневая трассировка (manual_traceroute)
+# 4. traceroute
 def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
     reply_list = []
     try:
@@ -148,22 +148,9 @@ def manual_traceroute(destination: str, max_hops: int = 30) -> List[str]:
         if reply is None:
             continue
         reply_list.append(reply.src)
-        if reply.type == 3:  # Reached destination
+        if reply.type == 3:
             break
     return reply_list
-
-# 5. Обертка для API: check_traceroute
-def check_traceroute(host: str):
-    try:
-        hops = manual_traceroute(host, MAX_HOPS)
-        if hops:
-            return hops
-        else:
-            return False
-    except Exception:
-        return False
-
-# === Модели запросов ===
 
 class reportFromAgent(BaseModel):
     country: str
