@@ -176,7 +176,7 @@ def startCheck(req: checkRequest):
     
     taskUIID = uuid.uuid4()
     cursor = conn.cursor()
-    cursor.execute("SELECT ip FROM Agents")
+    cursor.execute("SELECT * FROM Agents")
     rows = cursor.fetchall()
     ipAddrs = []
     for row in rows:
